@@ -75,11 +75,11 @@ for scenario in scenarios.keys() :
   onshell_mDM = 400
   offshell_mMed = 100
   offshell_mDM = 75
-  paper_onshell_simple = xsec_monojet_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+  paper_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
   if this_scenario["model"] == "AV" :
-    my_onshell_simple = xsec_monojet_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+    my_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
   else :
-    my_onshell_simple = xsec_monojet_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+    my_onshell_simple = widthratio_monojet_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
   print("Simple on-shell scale factor:",paper_onshell_simple/my_onshell_simple)
   paper_onshell_medium = (paper_scenario["gq"]**2 * paper_scenario["gDM"]**2)/totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
   print("\t",totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"]),paper_scenario["gq"]**2, paper_scenario["gDM"]**2)
@@ -150,6 +150,7 @@ scenario_files = {
 }
 
 from matplotlib.path import Path
+print("Beginning plotting.")
 for scenario in scenario_files.keys() :
 
   # Get TGraph and convert to arrays
