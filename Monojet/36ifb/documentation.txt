@@ -1,0 +1,6 @@
+From 2018 INT:
+"since the acceptance of the ETMiss distribution does not change as a function of mχ at fixed mediator mass in the on-shell regime [...]"
+-> Acceptance is constant in vertical lines but not necessarily in horizontal ones.
+On-shell point not an issue for this analysis, which is entirely in on-shell region.
+
+Does this mean rescaling to other grids somehow keeps the mediator mass constant? Or equivalent?
