@@ -8,6 +8,13 @@ import scipy as sp
 # Analysing results from 
 # https://atlas.web.cern.ch/Atlas/GROUPS/PHYSICS/PAPERS/EXOT-2016-27/
 
+# Can either use HEPData points as input, or the values that went into that plot.
+# Second is probably better, but we have methods for both.
+useHEPData=True
+
+# Add this to any plots.
+plot_tag = ""
+
 analysis_tag = "EXOT-2016-27"
 scenario_tag = "AV_gq0p25_gchi1p0"
 paper_scenario = {"model" : "AV", "gq"  : 0.25, "gDM" : 1.0, "gl" : 0.0}
@@ -39,18 +46,38 @@ def make_plot(xvals, yvals, zvals, this_tag, addCurves=None) :
   plt.savefig('{0}_{1}.eps'.format(analysis_tag,this_tag))
   plt.savefig('{0}_{1}.pdf'.format(analysis_tag,this_tag))
 
-with open("hepdata_{0}.json".format(scenario_tag), "r") as read_file:
-  data = json.load(read_file)
 
-values = data["values"]
+# Now begin extracting data.
 
-# Extract as numpy arrays
-xlist = np.array([val["x"][0]["value"] for val in values]).astype(np.float)
-ylist = np.array([val["x"][1]["value"] for val in values]).astype(np.float)
-zlist = np.array([val["y"][0]["value"] for val in values]).astype(np.float)
+# HEPData file is a pretty weird json.
+if useHEPData :
+  with open("hepdata_{0}.json".format(scenario_tag), "r") as read_file:
+    data = json.load(read_file)
+
+  values = data["values"]
+
+  # Extract as numpy arrays
+  xlist = np.array([val["x"][0]["value"] for val in values]).astype(np.float)
+  ylist = np.array([val["x"][1]["value"] for val in values]).astype(np.float)
+  zlist = np.array([val["y"][0]["value"] for val in values]).astype(np.float)
+
+# The json I made is a little more human friendly.
+else :
+  with open("original_limits_{0}.json".format(scenario_tag), "r") as read_file:
+    data = json.load(read_file)
+
+  values = data["0.25"]
+
+  # Extract as numpy arrays
+  xlist = np.array([val["x"] for val in values]).astype(np.float)
+  ylist = np.array([val["y"] for val in values]).astype(np.float)
+  zlist = np.array([val["value"] for val in values]).astype(np.float)
 
 # Make a contour plot matching the one from the analysis
 make_plot(xlist,ylist,zlist,scenario_tag+"_original")
+
+# TESTING
+exit(0)
 
 # Now convert to each of our other scenarios and let's see how plausible it looks
 from monojet_functions import *
