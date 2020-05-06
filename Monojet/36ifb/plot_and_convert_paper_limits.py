@@ -10,7 +10,7 @@ import scipy as sp
 
 # Can either use HEPData points as input, or the values that went into that plot.
 # Second is probably better, but we have methods for both.
-useHEPData=False 
+useHEPData=False
 
 # Add this to any plots.
 plot_tag = ""
@@ -25,7 +25,7 @@ def get_aspect_ratio(ax) :
   ybottom, ytop = ax.get_ylim()
   return abs((xright-xleft)/(ybottom-ytop))*ratio
 
-def make_plot(xvals, yvals, zvals, this_tag, addCurves=None) :
+def make_plot(xvals, yvals, zvals, this_tag, addCurves=None, addPoints=False) :
 
   levels = range(26)  # Levels must be increasing.
   fig,ax=plt.subplots(1,1)
@@ -35,10 +35,29 @@ def make_plot(xvals, yvals, zvals, this_tag, addCurves=None) :
   ax.set_aspect(ratio)
   cp = ax.tricontourf(xvals, yvals, zvals, levels=levels, cmap='Blues_r')
   fig.colorbar(cp)
+
+  # Want points under contour, if adding them.
+  if addPoints :
+    # Separate into two populations: excluded and non excluded.
+    xexcl,yexcl = [],[]
+    xnon,ynon = [],[]
+    for x,y,z in zip(xvals,yvals,zvals) :
+      if z < 1. : 
+        xexcl.append(x)
+        yexcl.append(y)
+      else :
+        xnon.append(x)
+        ynon.append(y)
+    #for i, j, k in zip(xvals,yvals,zvals) :
+    ax.scatter(xnon,ynon,color='red', marker='o',facecolors='none')
+    ax.scatter(xexcl,yexcl,color='white', marker='o',facecolors='none')
+
+  # Now add exclusion contour
   ax.tricontour(xvals, yvals, zvals,levels=[1],colors=['w'],linewidths=[2])
   ax.set_xlabel("m$_{ZA}$ [GeV]")
   ax.set_ylabel("m$_{\chi}$ [GeV]")
 
+  # Now add another for comparison if desired.
   if addCurves :
     for curve in addCurves :
       ax.add_patch(curve)
@@ -74,10 +93,7 @@ else :
   zlist = np.array([val["value"] for val in values]).astype(np.float)
 
 # Make a contour plot matching the one from the analysis
-make_plot(xlist,ylist,zlist,scenario_tag+"_original")
-
-# TESTING
-exit(0)
+make_plot(xlist,ylist,zlist,scenario_tag+"_original",addPoints=(not useHEPData))
 
 # Now convert to each of our other scenarios and let's see how plausible it looks
 from monojet_functions import *
@@ -98,31 +114,31 @@ for scenario in scenarios.keys() :
 
   # Validation: pick one very on shell point and one off-shell point
   print("Validation, scenario",scenario)
-  onshell_mMed = 1400
-  onshell_mDM = 400
-  offshell_mMed = 100
-  offshell_mDM = 75
-  paper_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-  if this_scenario["model"] == "AV" :
-    my_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  else :
-    my_onshell_simple = widthratio_monojet_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  print("Simple on-shell scale factor:",paper_onshell_simple/my_onshell_simple)
-  paper_onshell_medium = (paper_scenario["gq"]**2 * paper_scenario["gDM"]**2)/totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-  print("\t",totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"]),paper_scenario["gq"]**2, paper_scenario["gDM"]**2)
-  if this_scenario["model"] == "AV" :
-    my_onshell_medium = (this_scenario["gq"]**2 * this_scenario["gDM"]**2)/totalWidthAxial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-    print("\t",totalWidthAxial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"]),this_scenario["gq"]**2, this_scenario["gDM"]**2)
-  else :
-    my_onshell_medium = (this_scenario["gq"]**2 * this_scenario["gDM"]**2)/totalWidthVector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-    print("\t",totalWidthVector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"]),this_scenario["gq"]**2,this_scenario["gDM"]**2)
-  print("Intermediate on-shell scale factor:",paper_onshell_medium/my_onshell_medium)
-  paper_onshell_complex = relative_monojet_xsec_fixedmasses_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-  if this_scenario["model"] == "AV" :
-    my_onshell_complex = relative_monojet_xsec_fixedmasses_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  else :
-    my_onshell_complex = relative_monojet_xsec_fixedmasses_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  print("Complex on-shell scale factor:",paper_onshell_complex/my_onshell_complex)
+  # onshell_mMed = 1400
+  # onshell_mDM = 400
+  # offshell_mMed = 100
+  # offshell_mDM = 75
+  # paper_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+  # if this_scenario["model"] == "AV" :
+  #   my_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+  # else :
+  #   my_onshell_simple = widthratio_monojet_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+  # print("Simple on-shell scale factor:",paper_onshell_simple/my_onshell_simple)
+  # paper_onshell_medium = (paper_scenario["gq"]**2 * paper_scenario["gDM"]**2)/totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+  # print("\t",totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"]),paper_scenario["gq"]**2, paper_scenario["gDM"]**2)
+  # if this_scenario["model"] == "AV" :
+  #   my_onshell_medium = (this_scenario["gq"]**2 * this_scenario["gDM"]**2)/totalWidthAxial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+  #   print("\t",totalWidthAxial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"]),this_scenario["gq"]**2, this_scenario["gDM"]**2)
+  # else :
+  #   my_onshell_medium = (this_scenario["gq"]**2 * this_scenario["gDM"]**2)/totalWidthVector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+  #   print("\t",totalWidthVector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"]),this_scenario["gq"]**2,this_scenario["gDM"]**2)
+  # print("Intermediate on-shell scale factor:",paper_onshell_medium/my_onshell_medium)
+  # paper_onshell_complex = relative_monojet_xsec_fixedmasses_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+  # if this_scenario["model"] == "AV" :
+  #   my_onshell_complex = relative_monojet_xsec_fixedmasses_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+  # else :
+  #   my_onshell_complex = relative_monojet_xsec_fixedmasses_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+  # print("Complex on-shell scale factor:",paper_onshell_complex/my_onshell_complex)
   ## End of validation
 
   # paper_val = sigma_obs/sigma_theory
@@ -130,11 +146,17 @@ for scenario in scenarios.keys() :
   # So multiply by (sigma_theory/sigma_new_theory)
   for (mMed, mDM, paper_val) in zip(xlist,ylist,zlist) :
 
-    paper_xsec = relative_monojet_xsec_fixedmasses_axial(mMed, mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+    # paper_xsec = relative_monojet_xsec_fixedmasses_axial(mMed, mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+    # if this_scenario["model"] == "AV" :
+    #   this_xsec = relative_monojet_xsec_fixedmasses_axial(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+    # else :
+    #   this_xsec = relative_monojet_xsec_fixedmasses_vector(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+
+    paper_xsec = relative_monox_xsec_axial(mMed, mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
     if this_scenario["model"] == "AV" :
-      this_xsec = relative_monojet_xsec_fixedmasses_axial(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+      this_xsec = relative_monox_xsec_axial(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
     else :
-      this_xsec = relative_monojet_xsec_fixedmasses_vector(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+      this_xsec = relative_monox_xsec_vector(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
 
     # We get zero cross section off-shell with this setup
     if this_xsec == 0 :
@@ -149,7 +171,7 @@ for scenario in scenarios.keys() :
   array_x = np.array(converted_x)
   array_y = np.array(converted_y)
   array_z = np.array(converted_z)
-  make_plot(array_x,array_y,array_z,scenario)
+  make_plot(array_x,array_y,array_z,scenario,addPoints=(not useHEPData))
 
   # and save.
   scenarios[scenario]["xvals"] = array_x
@@ -188,7 +210,7 @@ for scenario in scenario_files.keys() :
   string_path = mpath.Path(vertices)#, treatments)
   patch = mpatches.PathPatch(string_path, edgecolor="red", facecolor=None, fill=False, lw=2)
 
-  make_plot(scenarios[scenario]["xvals"], scenarios[scenario]["yvals"], scenarios[scenario]["zvals"], scenario+"_compare", addCurves=[patch])
+  make_plot(scenarios[scenario]["xvals"], scenarios[scenario]["yvals"], scenarios[scenario]["zvals"], scenario+"_compare", addCurves=[patch],addPoints=(not useHEPData))
 
 
 # and save in usable format? TBD.
