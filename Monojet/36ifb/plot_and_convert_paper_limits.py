@@ -10,7 +10,7 @@ import scipy as sp
 
 # Can either use HEPData points as input, or the values that went into that plot.
 # Second is probably better, but we have methods for both.
-useHEPData=True
+useHEPData=False 
 
 # Add this to any plots.
 plot_tag = ""
@@ -123,15 +123,6 @@ for scenario in scenarios.keys() :
   else :
     my_onshell_complex = relative_monojet_xsec_fixedmasses_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
   print("Complex on-shell scale factor:",paper_onshell_complex/my_onshell_complex)
-  # paper_offshell_simple = paper_scenario["gq"]**2 * paper_scenario["gDM"]**2
-  # my_offshell_simple = this_scenario["gq"]**2 * this_scenario["gDM"]**2
-  # print("Simple off-shell scale factor:",paper_offshell_simple/my_offshell_simple)
-  # paper_offshell_complex = relative_monojet_xsec_fixedmasses_axial(offshell_mMed, offshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-  # if this_scenario["model"] == "AV" :
-  #   my_offshell_complex = relative_monojet_xsec_fixedmasses_axial(offshell_mMed, offshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  # else :
-  #   my_offshell_complex = relative_monojet_xsec_fixedmasses_vector(offshell_mMed, offshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])  
-  # print("Complex off-shell scale factor:",paper_offshell_complex/my_offshell_complex)
   ## End of validation
 
   # paper_val = sigma_obs/sigma_theory
