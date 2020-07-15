@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 import scipy as sp
+import time
 
 # Analysing results from 
 # https://atlas.web.cern.ch/Atlas/GROUPS/PHYSICS/PAPERS/EXOT-2016-27/
@@ -19,13 +20,19 @@ analysis_tag = "EXOT-2016-27"
 scenario_tag = "AV_gq0p25_gchi1p0"
 paper_scenario = {"model" : "AV", "gq"  : 0.25, "gDM" : 1.0, "gl" : 0.0}
 
+point_limits = [3000,1500]
+
+# This is for benchmarking. If I just want to test the time taken
+# to do a few points and check everything runs, turn this on.
+doTest = False
+
 def get_aspect_ratio(ax) :
   ratio = 1.0
   xleft, xright = ax.get_xlim()
   ybottom, ytop = ax.get_ylim()
   return abs((xright-xleft)/(ybottom-ytop))*ratio
 
-def make_plot(xvals, yvals, zvals, this_tag, addCurves=None, addPoints=False) :
+def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPoints=False) :
 
   levels = range(26)  # Levels must be increasing.
   fig,ax=plt.subplots(1,1)
@@ -62,8 +69,12 @@ def make_plot(xvals, yvals, zvals, this_tag, addCurves=None, addPoints=False) :
     for curve in addCurves :
       ax.add_patch(curve)
 
-  plt.savefig('{0}_{1}.eps'.format(analysis_tag,this_tag))
-  plt.savefig('{0}_{1}.pdf'.format(analysis_tag,this_tag))
+  # Add text
+  if addText :
+    plt.figtext(0.2,0.7,addText,backgroundcolor="white")
+
+  plt.savefig('plots/{0}_{1}.eps'.format(analysis_tag,this_tag),bbox_inches='tight')
+  plt.savefig('plots/{0}_{1}.pdf'.format(analysis_tag,this_tag),bbox_inches='tight')
 
 
 # Now begin extracting data.
@@ -93,70 +104,64 @@ else :
   zlist = np.array([val["value"] for val in values]).astype(np.float)
 
 # Make a contour plot matching the one from the analysis
-make_plot(xlist,ylist,zlist,scenario_tag+"_original",addPoints=(not useHEPData))
+text_original="Original\nAxial-vector\ng$_{q}$=0.25, g$_{\chi}$=1"
+make_plot(xlist,ylist,zlist,scenario_tag+"_original",addText=text_original,addPoints=(not useHEPData))
 
 # Now convert to each of our other scenarios and let's see how plausible it looks
 from monojet_functions import *
 scenarios = {
-  "AV_gq0p25_gchi1p0" : {"model" : "AV", "gq"  : 0.25, "gDM" : 1.0, "gl" : 0.0},
-  "AV_gq0p1_gl0p1_gchi1p0" : {"model" : "AV", "gq" : 0.1, "gDM" : 1.0, "gl" : 0.1},
+#  "AV_gq0p25_gchi1p0" : {"model" : "AV", "gq"  : 0.25, "gDM" : 1.0, "gl" : 0.0},
+#  "AV_gq0p1_gl0p1_gchi1p0" : {"model" : "AV", "gq" : 0.1, "gDM" : 1.0, "gl" : 0.1},
   "V_gq0p25_gchi1p0" : {"model" : "V", "gq"  : 0.25, "gDM" : 1.0, "gl" : 0.0},
-  "V_gq0p1_gl0p01_gchi1p0" : {"model" : "V", "gq" : 0.1, "gDM" : 1.0, "gl" : 0.01}
+#  "V_gq0p1_gl0p01_gchi1p0" : {"model" : "V", "gq" : 0.1, "gDM" : 1.0, "gl" : 0.01}
 }
 
-# Conversion - scale by xsec(old)/xsec(new) bc theory_new is on the bottom?
+# Conversion - scale by xsec(old)/xsec(new) bc theory_new is on the bottom
 for scenario in scenarios.keys() :
+
+  print("Beginning scenario",scenario)
+  start = time.perf_counter()
 
   this_scenario = scenarios[scenario]
   converted_x = []
   converted_y = []
   converted_z = []
 
-  # Validation: pick one very on shell point and one off-shell point
-  print("Validation, scenario",scenario)
-  # onshell_mMed = 1400
-  # onshell_mDM = 400
-  # offshell_mMed = 100
-  # offshell_mDM = 75
-  # paper_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-  # if this_scenario["model"] == "AV" :
-  #   my_onshell_simple = widthratio_monojet_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  # else :
-  #   my_onshell_simple = widthratio_monojet_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  # print("Simple on-shell scale factor:",paper_onshell_simple/my_onshell_simple)
-  # paper_onshell_medium = (paper_scenario["gq"]**2 * paper_scenario["gDM"]**2)/totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-  # print("\t",totalWidthAxial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"]),paper_scenario["gq"]**2, paper_scenario["gDM"]**2)
-  # if this_scenario["model"] == "AV" :
-  #   my_onshell_medium = (this_scenario["gq"]**2 * this_scenario["gDM"]**2)/totalWidthAxial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  #   print("\t",totalWidthAxial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"]),this_scenario["gq"]**2, this_scenario["gDM"]**2)
-  # else :
-  #   my_onshell_medium = (this_scenario["gq"]**2 * this_scenario["gDM"]**2)/totalWidthVector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  #   print("\t",totalWidthVector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"]),this_scenario["gq"]**2,this_scenario["gDM"]**2)
-  # print("Intermediate on-shell scale factor:",paper_onshell_medium/my_onshell_medium)
-  # paper_onshell_complex = relative_monojet_xsec_fixedmasses_axial(onshell_mMed, onshell_mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-  # if this_scenario["model"] == "AV" :
-  #   my_onshell_complex = relative_monojet_xsec_fixedmasses_axial(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  # else :
-  #   my_onshell_complex = relative_monojet_xsec_fixedmasses_vector(onshell_mMed, onshell_mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-  # print("Complex on-shell scale factor:",paper_onshell_complex/my_onshell_complex)
-  ## End of validation
-
   # paper_val = sigma_obs/sigma_theory
   # Want to convert to sigma_obs/sigma_new_theory
   # So multiply by (sigma_theory/sigma_new_theory)
+  nPointsKept = 0
   for (mMed, mDM, paper_val) in zip(xlist,ylist,zlist) :
 
-    # paper_xsec = relative_monojet_xsec_fixedmasses_axial(mMed, mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
-    # if this_scenario["model"] == "AV" :
-    #   this_xsec = relative_monojet_xsec_fixedmasses_axial(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
-    # else :
-    #   this_xsec = relative_monojet_xsec_fixedmasses_vector(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+    # Various escape conditions
+    if mMed > point_limits[0] or mDM > point_limits[1] : 
+      continue
+    nPointsKept = nPointsKept+1
+    if doTest and nPointsKept > 5 :
+      continue
+    print("Beginning point",mMed, mDM)
 
-    paper_xsec = relative_monox_xsec_axial(mMed, mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+    # Propagator only version: appropriate within scenarios?
+    # paper_xsec = relative_monox_propagator_integral_axial(mMed, mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+    # if this_scenario["model"] == "AV" :
+    #   this_xsec = relative_monox_propagator_integral_axial(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+    # else :
+    #   this_xsec = relative_monox_propagator_integral_vector(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+
+    # Most full version
+    time_one = time.perf_counter()
+    paper_xsec = relative_monox_xsec_hadron_axial(mMed, mDM, paper_scenario["gq"], paper_scenario["gDM"], paper_scenario["gl"])
+    stop_one = time.perf_counter()
+    print("One integral took",round(stop_one-time_one),"seconds.")
+    print(paper_xsec)
     if this_scenario["model"] == "AV" :
-      this_xsec = relative_monox_xsec_axial(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+      this_xsec = relative_monox_xsec_hadron_axial(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
     else :
-      this_xsec = relative_monox_xsec_vector(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])
+      time_two = time.perf_counter()
+      this_xsec = relative_monox_xsec_hadron_vector(mMed, mDM, this_scenario["gq"], this_scenario["gDM"], this_scenario["gl"])  
+      stop_two = time.perf_counter()
+      print("Next integral took",round(stop_two-time_two),"seconds.")
+    print(this_xsec)    
 
     # We get zero cross section off-shell with this setup
     if this_xsec == 0 :
@@ -167,11 +172,15 @@ for scenario in scenarios.keys() :
       converted_x.append(mMed)
       converted_y.append(mDM)
 
+  stop = time.perf_counter()
+  print("Finished in {0} seconds.".format(round(stop-start)))
+
   # Now ready to make a plot.
   array_x = np.array(converted_x)
   array_y = np.array(converted_y)
   array_z = np.array(converted_z)
-  make_plot(array_x,array_y,array_z,scenario,addPoints=(not useHEPData))
+  text_here = "{0}\ng$_{4}$={1}, g$_{5}$={2}, g$_{6}$={3}".format(("Axial-vector" if this_scenario["model"]=="AV" else "Vector"),this_scenario["gq"],this_scenario["gDM"],this_scenario["gl"],"q","\chi","l")
+  make_plot(array_x,array_y,array_z,scenario+plot_tag,addText=text_here,addPoints=(not useHEPData))
 
   # and save.
   scenarios[scenario]["xvals"] = array_x
@@ -191,7 +200,9 @@ scenario_files = {
 
 from matplotlib.path import Path
 print("Beginning plotting.")
-for scenario in scenario_files.keys() :
+for scenario in scenarios.keys() :
+
+  this_scenario = scenarios[scenario]
 
   # Get TGraph and convert to arrays
   infile = ROOT.TFile.Open(inputDir+scenario_files[scenario],"READ")
@@ -210,7 +221,5 @@ for scenario in scenario_files.keys() :
   string_path = mpath.Path(vertices)#, treatments)
   patch = mpatches.PathPatch(string_path, edgecolor="red", facecolor=None, fill=False, lw=2)
 
-  make_plot(scenarios[scenario]["xvals"], scenarios[scenario]["yvals"], scenarios[scenario]["zvals"], scenario+"_compare", addCurves=[patch],addPoints=(not useHEPData))
-
-
-# and save in usable format? TBD.
+  text_here = "{0}\ng$_{4}$={1}, g$_{5}$={2}, g$_{6}$={3}".format(("Axial-vector" if this_scenario["model"]=="AV" else "Vector"),this_scenario["gq"],this_scenario["gDM"],this_scenario["gl"],"q","\chi","l")
+  make_plot(scenarios[scenario]["xvals"], scenarios[scenario]["yvals"], scenarios[scenario]["zvals"],scenario+"_compare"+plot_tag, addText=text_here, addCurves=[patch],addPoints=(not useHEPData))

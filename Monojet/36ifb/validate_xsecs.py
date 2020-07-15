@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from monojet_functions import *
 import scipy
 import json
+import lhapdf
 
 gq = 0.25
 gl = 0
@@ -13,7 +14,7 @@ with open("original_limits_AV_gq0p25_gchi1p0.json", "r") as read_file:
   data = json.load(read_file)["0.25"]
 
 # Let's understand what's going on around 1000, 500ish:
-test_points = [i for i in data if (i["x"]=="1000" and eval(i["y"]) >400 and eval(i["y"])<600)]
+test_points = [i for i in data if (i["x"]=="1000" and eval(i["y"])>400 and eval(i["y"])<600)]
 
 def manual_integration(xlist,Gamma,isVec) :
   ylist = []
@@ -41,8 +42,8 @@ for point in sorted(test_points,key=lambda k: k["y"]) :
   # Close to off-shell, peak is to the left of where we actually start.  
   lowVal = 4*mDM**2
   peakVal = M**2
-  #endVal = 169000000
-  endVal = 3e6
+  endVal = 169000000
+  #endVal = 3e6
   Slist = np.logspace(np.log10(lowVal), np.log10(endVal), 20000, endpoint=True)
   #Slist = np.rint(Slist)
   # Slist = [lowVal, lowVal+1,lowVal+2]
@@ -83,7 +84,7 @@ for point in sorted(test_points,key=lambda k: k["y"]) :
 
     # Show the plot (only interesting for overlay, i.e. second iteration)
     if not isVector :
-      plt.savefig('plot_dsigdS_{0}.eps'.format(tag))
+      plt.savefig('plots/plot_dsigdS_{0}.eps'.format(tag))
 
     # Now do the integral.
     intpoints = [M,M**2-Gamma,M**2,M**2+Gamma]
@@ -112,3 +113,19 @@ for point in sorted(test_points,key=lambda k: k["y"]) :
     print("Would need V to AV cross-section ratio to be",original_limit,"or larger to exclude point.")
     print("Ratio was only",1./ratio)
 
+# Do some lhapdf testing.
+lhapdf.pathsPrepend("/cvmfs/sft.cern.ch/lcg/releases/LCG_97python3/MCGenerators/lhapdf/6.2.3/x86_64-centos7-gcc9-opt/share/LHAPDF/")
+lhapdf.pathsPrepend("/cvmfs/sft.cern.ch/lcg/external/lhapdfsets/current/")
+#pdfs = [i for i in lhapdf.availablePDFSets() if "NNPDF30_lo" in i]
+pdf = lhapdf.mkPDF("NNPDF30_lo_as_0118_nf_4",0)
+
+print("Able to use it?")
+# Test:
+for pid in pdf.flavors():
+  print("PID",pid)
+  print(pdf.xfxQ(pid, 0.01, 91.2))
+
+# 4 flavour scheme. u, d, s, c. Need u \bar(u), etc. So:
+
+#p = lhapdf.mkPDF("CT10", 0)
+#print(p.xfxQ2(21, 1e-3, 1e4))
