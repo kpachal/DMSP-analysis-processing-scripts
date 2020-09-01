@@ -81,6 +81,27 @@ xlist = np.array([val["x"][iMed]["value"] for val in values]).astype(np.float)
 ylist = np.array([val["x"][iDM]["value"] for val in values]).astype(np.float)
 zlist = np.array([val["y"][0]["value"] for val in values]).astype(np.float)
 
+# TESTING
+
+
+# ADJUST HERE
+do_logz = True
+def stabilize_z(inlist) :
+  new_list = []
+  for zval in inlist :
+    #if zval < 0.5 : z_new = -1
+    #elif zval > 1 :
+    #  z_new = np.log(zval)
+    #else :
+    #  z_new = zval
+    z_new = np.log(zval)
+    if z_new < -1 : z_new = -1
+    new_list.append(z_new)
+  return new_list
+
+if do_logz :
+  zlist = stabilize_z(zlist)
+
 # Save in the same format we'll use for our converted scenarios, for ease of plotting.
 paper_scenario = {"gq" : config["gq"], "gDM" : config["gDM"], "gl" : config["gl"]}
 paper_scenario["xvals"] = xlist
@@ -111,6 +132,8 @@ def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPo
     ymax = plot_limits[1]
 
   levels = range(26)  # Levels must be increasing.
+  if do_logz :
+    levels = range(-1,25,1)
   fig,ax=plt.subplots(1,1)
   plt.xlim(0, xmax)
   plt.ylim(0, ymax)
@@ -121,11 +144,19 @@ def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPo
   # Try adding gridded interpolation to make the contours smoother.
   # Options: linear, cubic, nearest
   # All look weird.
-  grid_x, grid_y = np.mgrid[0:xmax:1000j, 0:ymax:1000j]
-  grid_z = griddata(np.stack([xvals,yvals],axis=1), zvals, (grid_x, grid_y), method='nearest')
-  cp = ax.contourf(grid_x, grid_y, grid_z, levels=levels, cmap='Blues_r')
+  #grid_x, grid_y = np.mgrid[0:xmax:1000j, 0:ymax:1000j]
+  #grid_z = griddata(np.stack([xvals,yvals],axis=1), zvals, (grid_x, grid_y), method='linear')
 
-  # Let us try smoothing instead of interpolation.
+  # Now try same scaling as Histfitter.
+  # https://gitlab.cern.ch/HistFitter/HistFitter/-/blob/master/scripts/harvestToContours.py#L534
+  # TODO remove this for any public code to avoid histfitter non-citation problems!
+  import histfitter_contour_excerpts 
+  # 1, 100 and no log is best so far
+  # With log, best is 0.8, 80, multiquadric
+  grid_x, grid_y, grid_z = histfitter_contour_excerpts.collect_contours(xvals,yvals,zvals,[],0,xmax,0,ymax,xResolution=100,yResolution=100,interp_scheme="rbf",interpolationFunction="multiquadric",smoothing_factor=0.8,interp_epsilon=80)
+
+  # Now plot them
+  cp = ax.contourf(grid_x, grid_y, grid_z, levels=levels, cmap='Blues_r')
 
   fig.colorbar(cp)
 
@@ -134,10 +165,15 @@ def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPo
     # Separate into two populations: excluded and non excluded.
     xexcl,yexcl = [],[]
     xnon,ynon = [],[]
+    if do_logz :
+      cutoff = 0.
+    else :
+      # standard
+      cutoff = 1.
     for x,y,z in zip(xvals,yvals,zvals) :
-      if z < 1. : 
+      if z < cutoff : 
         xexcl.append(x)
-        yexcl.append(y)
+        yexcl.append(y) 
       else :
         xnon.append(x)
         ynon.append(y)
@@ -146,8 +182,10 @@ def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPo
     ax.scatter(xexcl,yexcl,color='white', marker='o',facecolors='none')
 
   # Now add exclusion contour
-  #ax.tricontour(xvals, yvals, zvals,levels=[1],colors=['w'],linewidths=[2])
-  ax.contour(grid_x,grid_y,grid_z,levels=[1],colors=['w'],linewidths=[2])
+  if not do_logz :
+    ax.contour(grid_x,grid_y,grid_z,levels=[1],colors=['w'],linewidths=[2])
+  else :
+    ax.contour(grid_x,grid_y,grid_z,levels=[0],colors=['w'],linewidths=[2])
   ax.set_xlabel("m$_{ZA}$ [GeV]")
   ax.set_ylabel("m$_{\chi}$ [GeV]")
 
@@ -158,14 +196,18 @@ def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPo
 
   # Add text
   if addText :
-    plt.figtext(0.2,0.7,addText,backgroundcolor="white")
+    plt.figtext(0.2,0.75,addText,backgroundcolor="white")
 
   plt.savefig('plots/{0}_{1}.eps'.format(config["analysis_tag"],this_tag),bbox_inches='tight')
   plt.savefig('plots/{0}_{1}.pdf'.format(config["analysis_tag"],this_tag),bbox_inches='tight')
 
 # Make a contour plot
-text_original = "Original\n"+get_plot_text(config["model"], config["gq"], config["gDM"], config["gl"])
-make_plot(xlist,ylist,zlist,"original",addText=text_original,addPoints=drawPoints)
+paper_name = get_scenario_name(config["model"], config["gq"], config["gDM"], config["gl"])
+paper_text = get_plot_text(config["model"], config["gq"], config["gDM"], config["gl"])
+make_plot(xlist,ylist,zlist,"original",addText="Original\n"+paper_text,addPoints=drawPoints)
+
+# Stop here
+exit(0)
 
 # Now convert to each of our other scenarios and let's see how plausible it looks
 from monojet_functions import *
@@ -265,4 +307,8 @@ for scenario in [paper_scenario]+targets :
 
   # And plot
   text_here = get_plot_text(config["model"], scenario["gq"], scenario["gDM"], scenario["gl"])
+  if scenario_name == paper_name :
+    text_here = "Original\n"+text_here
+  else :
+    text_here = "Rescaled\n"+text_here
   make_plot(scenario["xvals"], scenario["yvals"], scenario["zvals"],scenario_name+"_compare"+plot_tag, addText=text_here, addCurves=[patch],addPoints=drawPoints)
