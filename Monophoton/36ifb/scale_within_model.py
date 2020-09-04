@@ -119,6 +119,16 @@ def rotate_grid(grid_x,grid_y,angle) :
   yv = yv.flatten()
   return rotate_points(xv,yv,angle)
 
+def trim_grid(grid_x, grid_y, grid_z) :
+  xv, yv = np.meshgrid(grid_x,grid_y)
+  xv = xv.flatten()
+  yv = yv.flatten()
+  zv = grid_z.flatten()
+  xv = np.array([xv[i] for i,value in enumerate(zv) if not np.isnan(value)])
+  yv = np.array([yv[i] for i,value in enumerate(zv) if not np.isnan(value)])
+  zv = np.array([zv[i] for i,value in enumerate(zv) if not np.isnan(value)])
+  return xv, yv, zv
+
 # Save in the same format we'll use for our converted scenarios, for ease of plotting.
 paper_scenario = {"gq" : config["gq"], "gDM" : config["gDM"], "gl" : config["gl"]}
 paper_scenario["xvals"] = xlist
@@ -166,6 +176,8 @@ def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPo
   # Interpolation options.
   if interp_method == "griddata" :
     grid_z = sp.interpolate.griddata(np.stack([use_x,use_y],axis=1), zvals, (grid_x, grid_y), method='linear')
+    # These will be NaNs outside of region where there's actually data: remove those points
+    grid_x, grid_y, grid_z = trim_grid(grid_x,grid_y,grid_z)
   elif interp_method == "rbf" :
     #interpolator = sp.interpolate.Rbf(use_x, use_y, zvals, function="multiquadric", smooth=1.0 , epsilon=100)
     interpolator = sp.interpolate.Rbf(use_x, use_y, zvals, function="multiquadric", smooth=0.01 , epsilon=120)
@@ -267,7 +279,8 @@ make_plot(xlist,ylist,zlist,"original",addText="Original\n"+paper_text,addPoints
 #exit(0)
 
 # Now convert to each of our other scenarios and let's see how plausible it looks
-from monojet_functions import *
+import monojet_functions
+#from monojet_functions import *
 
 # Conversion - scale by xsec(old)/xsec(new) bc theory_new is on the bottom
 for scenario in targets :
