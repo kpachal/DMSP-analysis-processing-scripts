@@ -120,13 +120,12 @@ def rotate_grid(grid_x,grid_y,angle) :
   return rotate_points(xv,yv,angle)
 
 def trim_grid(grid_x, grid_y, grid_z) :
-  xv, yv = np.meshgrid(grid_x,grid_y)
-  xv = xv.flatten()
-  yv = yv.flatten()
+  xv = grid_x.flatten()
+  yv = grid_y.flatten()
   zv = grid_z.flatten()
-  xv = np.array([xv[i] for i,value in enumerate(zv) if not np.isnan(value)])
-  yv = np.array([yv[i] for i,value in enumerate(zv) if not np.isnan(value)])
-  zv = np.array([zv[i] for i,value in enumerate(zv) if not np.isnan(value)])
+  xv = np.array([xv[i] for i,value in enumerate(xv) if not np.isnan(zv[i])])
+  yv = np.array([yv[i] for i,value in enumerate(yv) if not np.isnan(zv[i])])
+  zv = np.array([zv[i] for i,value in enumerate(zv) if not np.isnan(zv[i])])
   return xv, yv, zv
 
 # Save in the same format we'll use for our converted scenarios, for ease of plotting.
@@ -185,6 +184,7 @@ def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPo
   elif interp_method == "clough_tocher" :
     interpolator = sp.interpolate.CloughTocher2DInterpolator(np.stack([use_x,use_y],axis=1), zvals)
     grid_z = interpolator(grid_x,grid_y)
+    grid_x,grid_y,grid_z = trim_grid(grid_x,grid_y,grid_z)
   elif interp_method == "smooth_bivariate" :
     interpolator = sp.interpolate.SmoothBivariateSpline(use_x,use_y,zvals)
     grid_z = interpolator.ev(grid_x,grid_y)
@@ -279,8 +279,7 @@ make_plot(xlist,ylist,zlist,"original",addText="Original\n"+paper_text,addPoints
 #exit(0)
 
 # Now convert to each of our other scenarios and let's see how plausible it looks
-import monojet_functions
-#from monojet_functions import *
+from monojet_functions import *
 
 # Conversion - scale by xsec(old)/xsec(new) bc theory_new is on the bottom
 for scenario in targets :
