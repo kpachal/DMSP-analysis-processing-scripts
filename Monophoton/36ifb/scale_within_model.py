@@ -1,6 +1,5 @@
 import json
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 import scipy as sp
@@ -44,7 +43,7 @@ interp_method = "griddata"
 
 # These can help with interpolation stability
 do_mirror = True
-do_rotate = True
+do_rotate = False
 
 # Add this tag to all plot outputs
 plot_tag = ""
@@ -93,41 +92,6 @@ xlist = np.array([val["x"][iMed]["value"] for val in values]).astype(np.float)
 ylist = np.array([val["x"][iDM]["value"] for val in values]).astype(np.float)
 zlist = np.array([val["y"][0]["value"] for val in values]).astype(np.float)
 
-def rotate_points(xinitial,yinitial,angle) :
-  xnew = []
-  ynew = []
-  for xi,yi in zip(xinitial,yinitial) :
-    if xi==0 :
-      if yi==0 :
-        xnew.append(xi)
-        ynew.append(yi)
-        continue
-      else :
-        theta_i = math.pi/2
-    else :
-      theta_i = math.atan(yi/xi)
-    r = math.sqrt(xi**2+yi**2)
-    xf = r * math.cos(theta_i+angle)
-    yf = r * math.sin(theta_i+angle)
-    xnew.append(xf)
-    ynew.append(yf)
-  return xnew,ynew
-
-def rotate_grid(grid_x,grid_y,angle) :
-  xv,yv = np.meshgrid(grid_x,grid_y)
-  xv = xv.flatten()
-  yv = yv.flatten()
-  return rotate_points(xv,yv,angle)
-
-def trim_grid(grid_x, grid_y, grid_z) :
-  xv = grid_x.flatten()
-  yv = grid_y.flatten()
-  zv = grid_z.flatten()
-  xv = np.array([xv[i] for i,value in enumerate(xv) if not np.isnan(zv[i])])
-  yv = np.array([yv[i] for i,value in enumerate(yv) if not np.isnan(zv[i])])
-  zv = np.array([zv[i] for i,value in enumerate(zv) if not np.isnan(zv[i])])
-  return xv, yv, zv
-
 # Save in the same format we'll use for our converted scenarios, for ease of plotting.
 paper_scenario = {"gq" : config["gq"], "gDM" : config["gDM"], "gl" : config["gl"]}
 paper_scenario["xvals"] = xlist
@@ -142,141 +106,11 @@ def get_plot_text(model, gq, gDM, gl) :
   use_text = "{0}\ng$_{4}$={1}, g$_{5}$={2}, g$_{6}$={3}".format(("Axial-vector" if model=="AV" else "Vector"),gq, gDM, gl,"q","\chi","l")
   return use_text
 
-def get_aspect_ratio(ax) :
-  ratio = 1.0
-  xleft, xright = ax.get_xlim()
-  ybottom, ytop = ax.get_ylim()
-  return abs((xright-xleft)/(ybottom-ytop))*ratio
-
-import scipy.interpolate
-def make_plot(xvals, yvals, zvals, this_tag, addText=None, addCurves=None, addPoints=False) :
-
-  xmin = min(0,min(xvals))
-  ymin = min(0,min(yvals))
-  xmax = max(xvals)
-  ymax = max(yvals)
-  if plot_limits :
-    xmax = plot_limits[0]
-    ymax = plot_limits[1]
-
-  if do_mirror :
-    xvals = np.append(xvals,xvals)
-    yvals = np.append(yvals,-1*yvals)
-    zvals = np.append(zvals,zvals)
-
-  if do_rotate :
-    use_x,use_y = rotate_points(xvals,yvals,-math.atan(0.5))
-    grid_x, grid_y = np.mgrid[0:1.2*xmax:100j, -1.2*ymax:1.2*ymax:100j]
-  else :
-    use_x = xvals
-    use_y = yvals
-    grid_x, grid_y = np.mgrid[0:xmax:100j, 0:ymax:100j]
-
-  # Interpolation options.
-  if interp_method == "griddata" :
-    grid_z = sp.interpolate.griddata(np.stack([use_x,use_y],axis=1), zvals, (grid_x, grid_y), method='linear')
-    # These will be NaNs outside of region where there's actually data: remove those points
-    grid_x, grid_y, grid_z = trim_grid(grid_x,grid_y,grid_z)
-  elif interp_method == "rbf" :
-    #interpolator = sp.interpolate.Rbf(use_x, use_y, zvals, function="multiquadric", smooth=1.0 , epsilon=100)
-    interpolator = sp.interpolate.Rbf(use_x, use_y, zvals, function="multiquadric", smooth=0.01 , epsilon=120)
-    grid_z = interpolator(grid_x,grid_y)
-  elif interp_method == "clough_tocher" :
-    interpolator = sp.interpolate.CloughTocher2DInterpolator(np.stack([use_x,use_y],axis=1), zvals)
-    grid_z = interpolator(grid_x,grid_y)
-    grid_x,grid_y,grid_z = trim_grid(grid_x,grid_y,grid_z)
-  elif interp_method == "smooth_bivariate" :
-    interpolator = sp.interpolate.SmoothBivariateSpline(use_x,use_y,zvals)
-    grid_z = interpolator.ev(grid_x,grid_y)
-  elif interp_method == "lsq_bivariate" :
-    x_knots = np.linspace(0,xmax,10)
-    y_knots = np.linspace(0,ymax,10)
-    interpolator = sp.interpolate.LSQBivariateSpline(use_x,use_y,zvals,x_knots,y_knots)
-    grid_z = interpolator.ev(grid_x,grid_y)
-  elif interp_method == "interp2d" :
-    tck = sp.interpolate.bisplrep(use_x,use_y,zvals, kx=2,ky=4, s=80)
-    grid_x = np.linspace(0,1.2*xmax,100)
-    grid_y = np.linspace(-1.2*ymax,1.2*ymax,100)
-    grid_z = sp.interpolate.bisplev(grid_x, grid_y, tck).T
-    grid_z = grid_z.flatten()
-
-  if do_rotate :
-    if len(grid_x.flatten()) == len(grid_z.flatten()) :
-      grid_x, grid_y = rotate_points(grid_x.flatten(),grid_y.flatten(),+math.atan(0.5))
-      grid_z = grid_z.flatten()
-    else :
-      grid_x, grid_y = rotate_grid(grid_x,grid_y,+math.atan(0.5))
-  
-  # Various interpolation formats 
-
-  # Now format the plotting.
-  levels = range(26)  # Levels must be increasing.
-  fig,ax=plt.subplots(1,1)
-  plt.xlim(xmin, xmax)
-  plt.ylim(ymin, ymax)
-  ratio = get_aspect_ratio(ax)
-  ax.set_aspect(ratio)
-
-  # Now plot them
-  if (grid_z.ndim > 1) :
-    cp = ax.contourf(grid_x, grid_y, grid_z, levels=levels, cmap='Blues_r')
-  else :
-    cp = ax.tricontourf(grid_x, grid_y, grid_z, levels=levels, cmap='Blues_r')
-
-  fig.colorbar(cp)
-
-  # Want points under contour, if adding them.
-  if addPoints :
-    # Separate into two populations: excluded and non excluded.
-    xexcl,yexcl = [],[]
-    xnon,ynon = [],[]
-    cutoff = 1.
-    for x,y,z in zip(xvals,yvals,zvals) :
-      if z < cutoff : 
-        xexcl.append(x)
-        yexcl.append(y) 
-      else :
-        xnon.append(x)
-        ynon.append(y)
-    #for i, j, k in zip(xvals,yvals,zvals) :
-    ax.scatter(xnon,ynon,color='red', marker='o',facecolors='none')
-    ax.scatter(xexcl,yexcl,color='white', marker='o',facecolors='none')
-
-  # Now add exclusion contour
-  if (grid_z.ndim > 1) :
-    ax.contour(grid_x,grid_y,grid_z,levels=[1],colors=['w'],linewidths=[2])
-  else :
-    ax.tricontour(grid_x,grid_y,grid_z,levels=[1],colors=['w'],linewidths=[2])
-  # Try getting it from root
-  #root_contours = histfitter_contour_excerpts.collect_contours_root(xvals,yvals,zvals,"k3a")
-  #print("Got",len(root_contours),"contours...")
-  #for contour in root_contours :
-  #  this_path = mpath.Path(contour)
-  #  contour = mpatches.PathPatch(this_path, edgecolor="w", facecolor=None, fill=False, lw=2)
-  #  ax.add_patch(contour)
-
-  ax.set_xlabel("m$_{ZA}$ [GeV]")
-  ax.set_ylabel("m$_{\chi}$ [GeV]")
-
-  # Now add another for comparison if desired.
-  if addCurves :
-    for curve in addCurves :
-      ax.add_patch(curve)
-
-  # Add text
-  if addText :
-    plt.figtext(0.2,0.75,addText,backgroundcolor="white")
-
-  plt.savefig('plots/{0}_{1}.eps'.format(config["analysis_tag"],this_tag),bbox_inches='tight')
-  plt.savefig('plots/{0}_{1}.pdf'.format(config["analysis_tag"],this_tag),bbox_inches='tight')
-
 # Make a contour plot
+from common_plotter import make_plot
 paper_name = get_scenario_name(config["model"], config["gq"], config["gDM"], config["gl"])
 paper_text = get_plot_text(config["model"], config["gq"], config["gDM"], config["gl"])
-make_plot(xlist,ylist,zlist,"original",addText="Original\n"+paper_text,addPoints=drawPoints)
-
-# Stop here
-#exit(0)
+make_plot(xlist,ylist,zlist,config["analysis_tag"]+"_original",plot_limits=plot_limits,addText="Original\n"+paper_text,addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
 
 # Now convert to each of our other scenarios and let's see how plausible it looks
 from monojet_functions import *
@@ -331,7 +165,7 @@ for scenario in targets :
   array_y = np.array(converted_y)
   array_z = np.array(converted_z)
   text_here = get_plot_text(config["model"], scenario["gq"],scenario["gDM"],scenario["gl"])
-  make_plot(array_x,array_y,array_z,scenario_name+plot_tag,addText=text_here,addPoints=drawPoints)
+  make_plot(array_x,array_y,array_z,config["analysis_tag"]+"_"+scenario_name+plot_tag,plot_limits=plot_limits,addText=text_here,addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
 
   # and save.
   targets[targets.index(scenario)]["xvals"] = array_x
@@ -380,4 +214,4 @@ for scenario in [paper_scenario]+targets :
     text_here = "Original\n"+text_here
   else :
     text_here = "Rescaled\n"+text_here
-  make_plot(scenario["xvals"], scenario["yvals"], scenario["zvals"],scenario_name+"_compare"+plot_tag,addText=text_here, addCurves=[patch],addPoints=drawPoints)
+  make_plot(scenario["xvals"], scenario["yvals"], scenario["zvals"],config["analysis_tag"]+"_"+scenario_name+"_compare"+plot_tag,plot_limits=plot_limits,addText=text_here, addCurves=[patch],addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
