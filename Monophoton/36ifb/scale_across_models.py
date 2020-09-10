@@ -13,8 +13,6 @@ import math
 parser = argparse.ArgumentParser(description='Propagator-based scaling to other couplings in the same model.')
 parser.add_argument('file', metavar='file', type=str, nargs='+',
                     help='the json file to process and from which to perform the scaling. Note: if this json is not made from an earlier scaling, you must also include an info.json file in the directory specifying its contents.')
-parser.add_argument('--originals', nargs='?', type=str,
-                    help='directory with original contours for certain models and couplings to use for validation')
 
 args = parser.parse_args()
 target_json = args.file[0]
@@ -23,19 +21,15 @@ if not os.path.exists(target_json) :
   exit(1)
 
 # Target models.
-# Using this method you can ONLY scale to targets in the same
-# model as your input, so there is no "model" parameter available.
-targets = [{"gq" : 0.1, "gDM" : 1.0, "gl" : 0.1}, {"gq" : 0.1, "gDM" : 1.0, "gl" : 0.0}, {"gq" : 0.1, "gDM" : 1.0, "gl" : 0.01}]
-
-# To add (Boyu?)
-# Add a 2D scan of g_q excluded between endpoints
-# Would like to see your code for that!
+# We don't recommend doing more than one point per target model - you can
+# rescale to other points more quickly using the scale_within_model approach.
+targets = [{"model": "V", "gq" : 0.25, "gDM" : 1.0, "gl" : 0.0}]
 
 # Add markers to the plots for the data points used?
 drawPoints=True
 
 # Draw our own contours through them?
-doContour=False
+doContour=True
 
 # Set up which interpolation method to use.
 # Options: griddata, rbf, clough_tocher, smooth_bivariate, lsq_bivariate, interp2d
@@ -149,35 +143,36 @@ def get_plot_text(model, gq, gDM, gl) :
 
 # Make a contour plot
 from common_plotter import make_plot
-initial_name = get_scenario_name(initial_scenario["model"], initial_scenario["gq"], initial_scenario["gDM"], initial_scenario["gl"])
-initial_text = get_plot_text(initial_scenario["model"], initial_scenario["gq"], initial_scenario["gDM"], initial_scenario["gl"])
-# If this is straight from the paper, make a plot with the "Original" label.
-if is_original :
-  make_plot(xlist,ylist,zlist,config["analysis_tag"]+"_original",plot_limits=plot_limits,addText="Original\n"+initial_text,addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
-# Otherwise, plot it but with "rescaled"
-else :
-  make_plot(xlist,ylist,zlist,config["analysis_tag"]+"_rescaled",plot_limits=plot_limits,addText="Original\n"+initial_text,addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
+paper_name = get_scenario_name(config["model"], config["gq"], config["gDM"], config["gl"])
+paper_text = get_plot_text(config["model"], config["gq"], config["gDM"], config["gl"])
+make_plot(xlist,ylist,zlist,config["analysis_tag"]+"_original",plot_limits=plot_limits,addText="Original\n"+paper_text,addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
 
-# Now convert to each of our other scenarios and let's see how plausible it looks
+# Now convert to each of our other models.
 from monojet_functions import *
 
 # Conversion - scale by xsec(old)/xsec(new) bc theory_new is on the bottom
 for scenario in targets :
 
-  scenario_name = get_scenario_name(initial_scenario["model"],scenario["gq"],scenario["gDM"],scenario["gl"])
+  scenario_name = get_scenario_name(scenario["model"],scenario["gq"],scenario["gDM"],scenario["gl"])
 
-  #print("Beginning scenario",scenario)
+  print("Beginning model",scenario)
   start = time.perf_counter()
+
+
+  # We are using the full PDF based scaling so we should be going to a different model.
+  if config["model"] == scenario["model"] :
+    print("WARNING: you are using full scaling to convert to another scenario within the same model.")
+    print("This is very slow for a simple task!! Consider using a different scaling.")
 
   converted_x = []
   converted_y = []
   converted_z = []
 
-  # initial_val = sigma_obs/sigma_theory
+  # paper_val = sigma_obs/sigma_theory
   # Want to convert to sigma_obs/sigma_new_theory
   # So multiply by (sigma_theory/sigma_new_theory)
   nPointsKept = 0
-  for (mMed, mDM, initial_val) in zip(xlist,ylist,zlist) :
+  for (mMed, mDM, paper_val) in zip(xlist,ylist,zlist) :
 
     # Various escape conditions
     if mMed > point_limits[0] or mDM > point_limits[1] : 
@@ -186,19 +181,18 @@ for scenario in targets :
     if doTest and nPointsKept > 5 :
       continue
 
-    # Propagator only version.
-    # Therefore must be the same model as parent.
-    if initial_scenario["model"] == "AV" :
-      initial_xsec = relative_monox_propagator_integral_axial(mMed, mDM, initial_scenario["gq"], initial_scenario["gDM"], initial_scenario["gl"])
-      this_xsec = relative_monox_propagator_integral_axial(mMed, mDM, scenario["gq"], scenario["gDM"], scenario["gl"])
-    else :
-      initial_xsec = relative_monox_propagator_integral_vector(mMed, mDM, initial_scenario["gq"], initial_scenario["gDM"], initial_scenario["gl"])
-      this_xsec = relative_monox_propagator_integral_vector(mMed, mDM, scenario["gq"], scenario["gDM"], scenario["gl"])   
+    # Set it up
+    paper_function = relative_monox_xsec_hadron_axial if config["model"] == "AV" else relative_monox_xsec_hadron_vector
+    scenario_function = relative_monox_xsec_hadron_axial if scenario["model"] == "AV" else relative_monox_xsec_hadron_vector
 
-    if this_xsec == 0 :
+    # Calculate
+    paper_xsec = paper_function(mMed, mDM, config["gq"], config["gDM"], config["gl"])
+    scenario_xsec = scenario_function(mMed, mDM, scenario["gq"], scenario["gDM"], scenario["gl"])
+
+    if scenario_xsec == 0 :
       continue
     else :
-      converted_val = initial_val*(initial_xsec/this_xsec)
+      converted_val = paper_val*(paper_xsec/scenario_xsec)
       converted_z.append(converted_val)
       converted_x.append(mMed)
       converted_y.append(mDM)
@@ -210,7 +204,7 @@ for scenario in targets :
   array_x = np.array(converted_x)
   array_y = np.array(converted_y)
   array_z = np.array(converted_z)
-  text_here = get_plot_text(initial_scenario["model"], scenario["gq"],scenario["gDM"],scenario["gl"])
+  text_here = get_plot_text(config["model"], scenario["gq"],scenario["gDM"],scenario["gl"])
   make_plot(array_x,array_y,array_z,config["analysis_tag"]+"_"+scenario_name+plot_tag,plot_limits=plot_limits,addText=text_here,addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
 
   # and save.
@@ -218,46 +212,10 @@ for scenario in targets :
   scenario["yvals"] = array_y
   scenario["zvals"] = array_z
 
-# Compare each of our contours to official ones if validations available.
-# Otherwise we can just stop here.
-if not args.originals :
-  exit(0)
-
-# So we have comparisons. Read in what we have and put them into plottable paths.
-from matplotlib.path import Path
-comparison_files = glob.glob(directory+"/"+args.originals+"/*.json")
-comparisons = {}
-for infile in comparison_files :
-  scenario_keys = infile.split("_")
-  if "AV" in scenario_keys : model = "AV"
-  else : model = "V"
-  scenario_name = "_".join(scenario_keys[scenario_keys.index(model):]).strip(".json")
-  with open(infile, "r") as read_file :
-    comparison_data = json.load(read_file)
-  # Now make this into a path
-  vertices = []
-  for item in comparison_data["values"] : 
-    vertices.append((item["x"][0]["value"],item["y"][0]["value"]))
-  this_path = mpath.Path(vertices)
-  comparisons[scenario_name] = this_path
-
-print("Beginning to plot comparisons.")
-for index,scenario in enumerate([initial_scenario]+targets) :
-
-  scenario_name = get_scenario_name(initial_scenario["model"],scenario["gq"],scenario["gDM"],scenario["gl"])
-  if not scenario_name in comparisons.keys() :
-    continue
-
-  print("Making comparison plot for scenario",scenario_name)
-  comparison = comparisons[scenario_name]
-
-  # Make patch from path
-  patch = mpatches.PathPatch(comparison, edgecolor="red", facecolor=None, fill=False, lw=2)
-
-  # And plot
-  text_here = get_plot_text(initial_scenario["model"], scenario["gq"], scenario["gDM"], scenario["gl"])
-  if index==0 and is_original :
-    text_here = "Original\n"+text_here
-  else :
-    text_here = "Rescaled\n"+text_here
-  make_plot(scenario["xvals"], scenario["yvals"], scenario["zvals"],config["analysis_tag"]+"_"+scenario_name+"_compare"+plot_tag,plot_limits=plot_limits,addText=text_here, addCurves=[patch],addPoints=drawPoints,interp_method=interp_method,do_mirror=do_mirror,do_rotate=do_rotate,doContour=doContour)
+  # We also want to save this info into a separate json so we don't have to re-run this later.
+  outname = "rescaled_"+scenario_name+".json"
+  clean_output = scenario
+  for arrayname in ["xvals", "yvals", "zvals"] :
+    clean_output[arrayname] = list(clean_output[arrayname])
+  with open(outname, 'w') as f:
+    json.dump(clean_output, f)
