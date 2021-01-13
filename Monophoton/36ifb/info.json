@@ -1,15 +1,9 @@
 {
-"analysis_tag" : "EXOT-2016-27",
+"analysis_tag" : "EXOT-2016-32",
 "model" : "AV", 
 "gq"  : 0.25, 
 "gDM" : 1.0, 
 "gl" : 0.0,
 "DMaxis" : "x",
-"validation_dir" : "/afs/cern.ch/work/k/kpachal/DMSP/dmcombinationandinterpretation/inputs/av_results_monojet_36ifb/",
-"validation_files" : {
-  "AV_gq0p25_gchi1p0" : "Monojet_A1_MassMassplot_36ifb.root",
-  "AV_gq0p1_gl0p1_gchi1p0" : "Monojet_A2_MassMassplot_36ifb.root",
-  "V_gq0p25_gchi1p0" : "Monojet_V1_MassMassplot_36ifb.root",
-  "V_gq0p1_gl0p01_gchi1p0" : "Monojet_V2_MassMassplot_36ifb.root"
-}
+"hepdata_file" : "hepdata_AV_gq0p25_gchi1p0.json"
 }
